@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎶 SyncRoom</title>
+</head>
+<body>
+  <h1>🎵 Welcome to SyncRoom</h1>
+
+  <button id="join">Join Room</button>
+  <div id="songList"></div>
+
+  <h3>Now Playing:</h3>
+  <audio id="audio" controls></audio>
+
+  <button id="play">▶️ Play</button>
+  <button id="pause">⏸ Pause</button>
+
+  <!-- Socket.IO -->
+  <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+  <script>
+    const roomId = 'lofi-room'; // Fixed for now
+    const socket = io('http://localhost:3000');
+    const audio = document.getElementById('audio');
+    const songListDiv = document.getElementById('songList');
+
+    // Join room
+    document.getElementById('join').addEventListener('click', () => {
+      socket.emit('joinRoom', roomId);
+      alert('Joined room: ' + roomId);
+    });
+
+    // Fetch songs
+    fetch('http://localhost:3000/songs')
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(song => {
+          const btn = document.createElement('button');
+          btn.textContent = `🎵 ${song.title} - ${song.artist || ''}`;
+          btn.onclick = () => {
+            audio.src = `http://localhost:3000/${song.file_path}`;
+            audio.currentTime = 0;
+            audio.play();
+            socket.emit('play', roomId, {
+              currentTime: 0,
+              src: audio.src
+            });
+          };
+          songListDiv.appendChild(btn);
+          songListDiv.appendChild(document.createElement('br'));
+        });
+      });
+
+    // Play
+    document.getElementById('play').addEventListener('click', () => {
+      socket.emit('play', roomId, {
+        currentTime: audio.currentTime,
+        src: audio.src
+      });
+      audio.play();
+    });
+
+    // Pause
+    document.getElementById('pause').addEventListener('click', () => {
+      socket.emit('pause', roomId);
+      audio.pause();
+    });
+
+    // Sync Play from other clients
+    socket.on('play', data => {
+      if (audio.src !== data.src) audio.src = data.src;
+      audio.currentTime = data.currentTime;
+      audio.play();
+    });
+
+    // Sync Pause
+    socket.on('pause', () => {
+      audio.pause();
+    });
+  </script>
+</body>
+</html>
